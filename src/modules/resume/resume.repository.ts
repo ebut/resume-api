@@ -120,4 +120,13 @@ export class ResumeRepository {
     await this.portfolioRepo.update(id, data);
     return await this.findPortfolioById(id);
   }
+
+  async findPortfoliosByResumeId(resumeId: number): Promise<Portfolio[]> {
+    return await this.portfolioRepo.find({
+      where: { resumeId },
+      order: {
+        createdAt: 'DESC'  // 최신순 정렬
+      }
+    });
+  }
 } 

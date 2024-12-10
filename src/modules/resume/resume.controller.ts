@@ -156,7 +156,7 @@ export class ResumeController {
     return await this.resumeService.deleteSkill(user.id, resumeId, skillId);
   }
 
-  // Portfolio 관련 엔드포인트
+  // Portfolio 관련 ���드포인트
   @Post(':id/portfolios')
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: '포트폴리오 파일 업로드' })
@@ -190,5 +190,24 @@ export class ResumeController {
     @Param('portfolioId') portfolioId: number,
   ) {
     return await this.resumeService.deletePortfolio(user.id, resumeId, portfolioId);
+  }
+
+  @Get(':id/portfolios')
+  @ApiOperation({ summary: '포트폴리오 목록 조회' })
+  async getPortfolios(
+    @CurrentUser() user: User,
+    @Param('id') resumeId: number,
+  ) {
+    return await this.resumeService.getPortfolios(user.id, resumeId);
+  }
+
+  @Get(':id/portfolios/:portfolioId')
+  @ApiOperation({ summary: '포트폴리오 상세 조회' })
+  async getPortfolio(
+    @CurrentUser() user: User,
+    @Param('id') resumeId: number,
+    @Param('portfolioId') portfolioId: number,
+  ) {
+    return await this.resumeService.getPortfolio(user.id, resumeId, portfolioId);
   }
 } 

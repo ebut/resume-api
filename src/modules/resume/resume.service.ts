@@ -211,4 +211,42 @@ export class ResumeService {
       throw error;
     }
   }
+
+  // Portfolio 조회 메서드 추가
+  async getPortfolios(userId: number, resumeId: number) {
+    // 권한 확인
+    await this.getResume(userId, resumeId);
+    const portfolios = await this.resumeRepository.findPortfoliosByResumeId(resumeId);
+
+    // 각 포트폴리오에 대한 다운로드 URL 생성
+    const portfoliosWithUrls = await Promise.all(
+      portfolios.map(async (portfolio) => ({
+        ...portfolio,
+        downloadUrl: await this.minioService.getFileUrl(portfolio.fileName)
+      }))
+    );
+
+    return portfoliosWithUrls;
+  }
+
+  async getPortfolio(userId: number, resumeId: number, portfolioId: number) {
+    // 권한 확인
+    await this.getResume(userId, resumeId);
+    
+    const portfolio = await this.resumeRepository.findPortfolioById(portfolioId);
+    if (!portfolio) {
+      throw new NotFoundException('포트폴리오를 찾을 수 없습니다.');
+    }
+    if (portfolio.resumeId !== resumeId) {
+      throw new UnauthorizedException('해당 이력서의 포트폴리오가 아닙니다.');
+    }
+
+    // 파일 다운로드 URL 생성
+    const downloadUrl = await this.minioService.getFileUrl(portfolio.fileName);
+    
+    return {
+      ...portfolio,
+      downloadUrl
+    };
+  }
 } 

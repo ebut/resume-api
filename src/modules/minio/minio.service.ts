@@ -73,4 +73,19 @@ export class MinioService {
       throw error;
     }
   }
+
+  async getFileUrl(fileName: string): Promise<string> {
+    try {
+      const bucket = process.env.MINIO_BUCKET;
+      // presigned URL 생성 (기본 7일)
+      const url = await this.minioService.client.presignedGetObject(bucket, fileName, 7 * 24 * 60 * 60);
+      return url;
+    } catch (error) {
+      console.error('Failed to generate file URL:', {
+        error: error.message,
+        fileName
+      });
+      throw error;
+    }
+  }
 } 
