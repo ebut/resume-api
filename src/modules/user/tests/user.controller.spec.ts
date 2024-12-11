@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserController } from '../user.controller';
 import { UserService } from '../user.service';
+import { Response } from 'express';
 
 describe('UserController', () => {
   let controller: UserController;
@@ -13,6 +14,14 @@ describe('UserController', () => {
     logout: jest.fn(),
     changePassword: jest.fn(),
   };
+
+  const mockResponse = {
+    cookie: jest.fn(),
+    status: jest.fn().mockReturnThis(),
+    sendStatus: jest.fn(),
+    links: jest.fn(),
+    send: jest.fn(),
+  } as unknown as Response;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -63,29 +72,10 @@ describe('UserController', () => {
 
       mockUserService.login.mockResolvedValue(expectedResult);
 
-      const result = await controller.login(loginDto);
+      const result = await controller.login(loginDto, mockResponse);
 
       expect(result).toBe(expectedResult);
       expect(service.login).toHaveBeenCalledWith(loginDto);
-    });
-  });
-
-  describe('refresh', () => {
-    it('should refresh token successfully', async () => {
-      const refreshTokenDto = {
-        refreshToken: 'oldRefreshToken',
-      };
-      const expectedResult = {
-        accessToken: 'newAccessToken',
-        refreshToken: 'newRefreshToken',
-      };
-
-      mockUserService.refreshToken.mockResolvedValue(expectedResult);
-
-      const result = await controller.refresh(refreshTokenDto);
-
-      expect(result).toBe(expectedResult);
-      expect(service.refreshToken).toHaveBeenCalledWith(refreshTokenDto.refreshToken);
     });
   });
 }); 

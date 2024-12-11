@@ -25,6 +25,17 @@ describe('ResumeController', () => {
     deletePortfolio: jest.fn(),
   };
 
+  const mockUser = {
+    id: 1,
+    email: 'test@example.com',
+    name: 'Test User',
+    password: 'hashedPassword',
+    refreshToken: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    resumes: []
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ResumeController],
@@ -42,7 +53,6 @@ describe('ResumeController', () => {
 
   describe('createResume', () => {
     it('should create a new resume', async () => {
-      const user = { id: 1, email: 'test@example.com' };
       const createResumeDto = {
         name: '신입 개발자 이력서',
         gender: '남성',
@@ -53,39 +63,37 @@ describe('ResumeController', () => {
       };
       const expectedResult = {
         id: 1,
-        userId: user.id,
+        userId: mockUser.id,
         ...createResumeDto,
       };
 
       mockResumeService.createResume.mockResolvedValue(expectedResult);
 
-      const result = await controller.createResume(user, createResumeDto);
+      const result = await controller.createResume(mockUser, createResumeDto);
 
       expect(result).toBe(expectedResult);
-      expect(service.createResume).toHaveBeenCalledWith(user.id, createResumeDto);
+      expect(service.createResume).toHaveBeenCalledWith(mockUser.id, createResumeDto);
     });
   });
 
   describe('getResumes', () => {
     it('should return all resumes for user', async () => {
-      const user = { id: 1, email: 'test@example.com' };
       const expectedResumes = [
-        { id: 1, userId: user.id, name: '이력서 1' },
-        { id: 2, userId: user.id, name: '이력서 2' },
+        { id: 1, userId: mockUser.id, name: '이력서 1' },
+        { id: 2, userId: mockUser.id, name: '이력서 2' },
       ];
 
       mockResumeService.getUserResumes.mockResolvedValue(expectedResumes);
 
-      const result = await controller.getResumes(user);
+      const result = await controller.getResumes(mockUser);
 
       expect(result).toBe(expectedResumes);
-      expect(service.getUserResumes).toHaveBeenCalledWith(user.id);
+      expect(service.getUserResumes).toHaveBeenCalledWith(mockUser.id);
     });
   });
 
   describe('uploadPortfolio', () => {
     it('should upload portfolio file', async () => {
-      const user = { id: 1, email: 'test@example.com' };
       const resumeId = 1;
       const mockFile = {
         originalname: 'test.pdf',
@@ -101,10 +109,10 @@ describe('ResumeController', () => {
 
       mockResumeService.uploadPortfolio.mockResolvedValue(expectedResult);
 
-      const result = await controller.uploadPortfolio(user, resumeId, mockFile);
+      const result = await controller.uploadPortfolio(mockUser, resumeId, mockFile);
 
       expect(result).toBe(expectedResult);
-      expect(service.uploadPortfolio).toHaveBeenCalledWith(user.id, resumeId, mockFile);
+      expect(service.uploadPortfolio).toHaveBeenCalledWith(mockUser.id, resumeId, mockFile);
     });
   });
 }); 

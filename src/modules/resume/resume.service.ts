@@ -249,4 +249,31 @@ export class ResumeService {
       downloadUrl
     };
   }
+
+  async downloadPortfolio(userId: number, resumeId: number, portfolioId: number) {
+    try {
+      // 1. 권한 확인
+      await this.getResume(userId, resumeId);
+      
+      // 2. 포트폴리오 정보 조회
+      const portfolio = await this.resumeRepository.findPortfolioById(portfolioId);
+      if (!portfolio) {
+        throw new NotFoundException('포트폴리오를 찾을 수 없습니다.');
+      }
+      if (portfolio.resumeId !== resumeId) {
+        throw new UnauthorizedException('해당 이력서의 포트폴리오가 아닙니다.');
+      }
+
+      // 3. Minio에서 파일 스트림 가져오기
+      const fileStream = await this.minioService.getFileStream(portfolio.fileName);
+      
+      return fileStream;
+    } catch (error) {
+      console.error('Portfolio download failed:', {
+        error: error.message,
+        context: { userId, resumeId, portfolioId }
+      });
+      throw error;
+    }
+  }
 } 

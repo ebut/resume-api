@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, UploadedFile, UseInterceptors, Res } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -9,6 +9,7 @@ import { EducationDto } from './dto/education.dto';
 import { ExperienceDto } from './dto/experience.dto';
 import { SkillDto } from './dto/skill.dto';
 import { User } from '../user/entities/user.entity';
+import { Response } from 'express';
 
 @ApiTags('이력서')
 @Controller('api/resumes')
@@ -156,7 +157,7 @@ export class ResumeController {
     return await this.resumeService.deleteSkill(user.id, resumeId, skillId);
   }
 
-  // Portfolio 관련 ���드포인트
+  // Portfolio 관련 엔드포인트
   @Post(':id/portfolios')
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: '포트폴리오 파일 업로드' })
@@ -210,4 +211,69 @@ export class ResumeController {
   ) {
     return await this.resumeService.getPortfolio(user.id, resumeId, portfolioId);
   }
+
+  @Get(':id/portfolios/:portfolioId/download')
+  @ApiOperation({ summary: '포트폴리오 파일 다운로드' })
+  @ApiResponse({ 
+    status: 200, 
+    description: '파일 다운로드 성공',
+    content: {
+      'application/octet-stream': {
+        schema: {
+          type: 'string',
+          format: 'binary'
+        }
+      }
+    }
+  })
+  async downloadPortfolio(
+    @CurrentUser() user: User,
+    @Param('id') resumeId: number,
+    @Param('portfolioId') portfolioId: number,
+    @Res() response: Response,
+  ) {
+    const portfolio = await this.resumeService.getPortfolio(user.id, resumeId, portfolioId);
+    
+    // 파일명 인코딩 처리
+    const encodedFilename = encodeURIComponent(portfolio.originalName)
+      .replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+
+    response.setHeader('Content-Type', portfolio.fileType);
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename*=UTF-8''${encodedFilename}`
+    );
+    
+    const fileStream = await this.resumeService.downloadPortfolio(user.id, resumeId, portfolioId);
+    return fileStream.pipe(response);
+  }
+  /* 클라이어늩에서 사용 예시
+// Fetch API 사용
+const response = await fetch(`/api/resumes/${resumeId}/portfolios/${portfolioId}/download`, {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+const blob = await response.blob();
+const url = window.URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url;
+a.download = filename; // 서버에서 제공하는 파일명
+a.click();
+window.URL.revokeObjectURL(url);
+
+// Axios 사용
+const response = await axios.get(`/api/resumes/${resumeId}/portfolios/${portfolioId}/download`, {
+  responseType: 'blob',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+const url = window.URL.createObjectURL(new Blob([response.data]));
+const link = document.createElement('a');
+link.href = url;
+link.download = filename;
+link.click();
+window.URL.revokeObjectURL(url);
+  */
 } 

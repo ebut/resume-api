@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { MinioService as NestMinioService } from 'nestjs-minio-client';
 import * as crypto from 'crypto';
+import { Readable } from 'stream';
 
 @Injectable()
 export class MinioService {
@@ -82,6 +83,19 @@ export class MinioService {
       return url;
     } catch (error) {
       console.error('Failed to generate file URL:', {
+        error: error.message,
+        fileName
+      });
+      throw error;
+    }
+  }
+
+  async getFileStream(fileName: string): Promise<Readable> {
+    try {
+      const bucket = process.env.MINIO_BUCKET;
+      return await this.minioService.client.getObject(bucket, fileName);
+    } catch (error) {
+      console.error('Failed to get file stream:', {
         error: error.message,
         fileName
       });

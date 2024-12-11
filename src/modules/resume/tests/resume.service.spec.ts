@@ -26,6 +26,10 @@ describe('ResumeService', () => {
     deleteSkill: jest.fn(),
     addPortfolio: jest.fn(),
     deletePortfolio: jest.fn(),
+    findPortfolioByResumeIdAndName: jest.fn(),
+    findPortfolioById: jest.fn(),
+    updatePortfolio: jest.fn(),
+    findPortfoliosByResumeId: jest.fn(),
   };
 
   const mockMinioService = {
