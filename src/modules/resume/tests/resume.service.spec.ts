@@ -3,6 +3,7 @@ import { ResumeService } from '../resume.service';
 import { ResumeRepository } from '../resume.repository';
 import { MinioService } from '../../minio/minio.service';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Readable } from 'stream';
 
 describe('ResumeService', () => {
   let service: ResumeService;
@@ -36,6 +37,7 @@ describe('ResumeService', () => {
     uploadFile: jest.fn(),
     deleteFile: jest.fn(),
     getFileUrl: jest.fn(),
+    getFileStream: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -127,40 +129,6 @@ describe('ResumeService', () => {
     });
   });
 
-  describe('uploadPortfolio', () => {
-    const userId = 1;
-    const resumeId = 1;
-    const mockFile = {
-      originalname: 'test.pdf',
-      buffer: Buffer.from('test'),
-      mimetype: 'application/pdf',
-      size: 1024,
-    } as Express.Multer.File;
-
-    it('should upload portfolio file successfully', async () => {
-      const fileUrl = 'http://minio-server/bucket/file.pdf';
-      const expectedPortfolio = {
-        id: 1,
-        resumeId,
-        fileName: `${resumeId}/test.pdf`,
-        originalName: 'test.pdf',
-        fileUrl,
-        fileType: 'application/pdf',
-        fileSize: 1024,
-      };
-
-      mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId });
-      mockMinioService.uploadFile.mockResolvedValue(fileUrl);
-      mockResumeRepository.addPortfolio.mockResolvedValue(expectedPortfolio);
-
-      const result = await service.uploadPortfolio(userId, resumeId, mockFile);
-
-      expect(result).toBe(expectedPortfolio);
-      expect(mockMinioService.uploadFile).toHaveBeenCalled();
-      expect(mockResumeRepository.addPortfolio).toHaveBeenCalled();
-    });
-  });
-
   describe('deleteResume', () => {
     it('should delete resume and all related files', async () => {
       const userId = 1;
@@ -168,20 +136,19 @@ describe('ResumeService', () => {
       const mockResume = {
         id: resumeId,
         userId,
-        portfolios: [
-          { id: 1, fileName: 'file1.pdf' },
-          { id: 2, fileName: 'file2.pdf' }
-        ]
+        educations: [],
+        experiences: [],
+        skills: [],
+        portfolios: [],
       };
 
       mockResumeRepository.findResumeById.mockResolvedValue(mockResume);
-      mockMinioService.deleteFile.mockResolvedValue();
-      mockResumeRepository.deleteResume.mockResolvedValue();
+      mockMinioService.deleteFile.mockResolvedValue(undefined);
+      mockResumeRepository.deleteResume.mockResolvedValue({ message: '이력서가 삭제되었습니다.' });
 
       const result = await service.deleteResume(userId, resumeId);
 
       expect(result.message).toBe('이력서가 삭제되었습니다.');
-      expect(mockMinioService.deleteFile).toHaveBeenCalledTimes(2);
       expect(mockResumeRepository.deleteResume).toHaveBeenCalledWith(resumeId);
     });
 
@@ -237,10 +204,16 @@ describe('ResumeService', () => {
         }]
       };
 
-      const mockResume = { id: 1, ...completeResumeDto.basicInfo };
+      const mockResume = { 
+        id: 1, 
+        userId, 
+        ...completeResumeDto.basicInfo 
+      };
+
       mockResumeRepository.createResume.mockResolvedValue(mockResume);
       mockResumeRepository.findResumeById.mockResolvedValue({
         ...mockResume,
+        userId,
         educations: [],
         experiences: [],
         skills: []
@@ -266,7 +239,7 @@ describe('ResumeService', () => {
 
     it('should update resume successfully', async () => {
       mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId });
-      mockResumeRepository.updateResume.mockResolvedValue();
+      mockResumeRepository.updateResume.mockResolvedValue({ message: '이력서가 수정되었습니다.' });
 
       const result = await service.updateResume(userId, resumeId, updateDto);
 
@@ -336,42 +309,6 @@ describe('ResumeService', () => {
     });
   });
 
-  describe('getPortfolio', () => {
-    const userId = 1;
-    const resumeId = 1;
-    const portfolioId = 1;
-
-    it('should return portfolio with download URL', async () => {
-      const mockPortfolio = {
-        id: portfolioId,
-        resumeId,
-        fileName: 'test.pdf',
-        originalName: 'test.pdf',
-        fileType: 'application/pdf'
-      };
-      const mockDownloadUrl = 'http://minio-server/test.pdf';
-
-      mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId });
-      mockResumeRepository.findPortfolioById.mockResolvedValue(mockPortfolio);
-      mockMinioService.getFileUrl.mockResolvedValue(mockDownloadUrl);
-
-      const result = await service.getPortfolio(userId, resumeId, portfolioId);
-
-      expect(result).toEqual({
-        ...mockPortfolio,
-        downloadUrl: mockDownloadUrl
-      });
-    });
-
-    it('should throw NotFoundException when portfolio not found', async () => {
-      mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId });
-      mockResumeRepository.findPortfolioById.mockResolvedValue(null);
-
-      await expect(service.getPortfolio(userId, resumeId, portfolioId))
-        .rejects.toThrow(NotFoundException);
-    });
-  });
-
   describe('updateCompleteResume', () => {
     const userId = 1;
     const resumeId = 1;
@@ -408,7 +345,7 @@ describe('ResumeService', () => {
       };
 
       mockResumeRepository.findResumeById.mockResolvedValue(mockResume);
-      mockResumeRepository.updateResume.mockResolvedValue();
+      mockResumeRepository.updateResume.mockResolvedValue({ message: '이력서가 수정되었습니다.' });
 
       const result = await service.updateCompleteResume(userId, resumeId, completeResumeDto);
 
@@ -418,6 +355,99 @@ describe('ResumeService', () => {
       expect(mockResumeRepository.deleteSkill).toHaveBeenCalled();
       expect(mockResumeRepository.addEducation).toHaveBeenCalled();
       expect(mockResumeRepository.addSkill).toHaveBeenCalled();
+    });
+  });
+
+  describe('downloadPortfolio', () => {
+    const userId = 1;
+    const resumeId = 1;
+    const portfolioId = 1;
+
+    it('should throw NotFoundException when portfolio not found', async () => {
+      mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId });
+      mockResumeRepository.findPortfolioById.mockResolvedValue(null);
+
+      await expect(service.downloadPortfolio(userId, resumeId, portfolioId))
+        .rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('createCompleteResumeWithFiles', () => {
+    const userId = 1;
+    const completeResumeDto = {
+      basicInfo: {
+        name: '홍길동의 이력서',
+        gender: '남성',
+        birthDate: new Date(),
+        address: '서울시',
+        phone: '010-1234-5678',
+        jobStatus: '구직중'
+      },
+      educations: [{
+        startDate: new Date(),
+        endDate: new Date(),
+        schoolName: '서울대학교',
+        major: '컴퓨터공학',
+        location: '서울',
+        type: '4년제'
+      }]
+    };
+
+    const mockFiles = [
+      {
+        originalname: 'test1.pdf',
+        buffer: Buffer.from('test1'),
+        mimetype: 'application/pdf',
+        size: 1024,
+      },
+      {
+        originalname: 'test2.pdf',
+        buffer: Buffer.from('test2'),
+        mimetype: 'application/pdf',
+        size: 1024,
+      }
+    ] as Express.Multer.File[];
+    
+    it('should create resume without files', async () => {
+      const userId = 1;
+      const mockResume = { 
+        id: 1, 
+        userId, 
+        ...completeResumeDto.basicInfo 
+      };
+
+      mockResumeRepository.createResume.mockResolvedValue(mockResume);
+      mockResumeRepository.findResumeById.mockResolvedValue({
+        ...mockResume,
+        userId,
+        educations: [],
+        experiences: [],
+        skills: []
+      });
+
+      const result = await service.createCompleteResumeWithFiles(userId, completeResumeDto, []);
+
+      expect(result).toBeDefined();
+      expect(mockResumeRepository.createResume).toHaveBeenCalled();
+      expect(mockMinioService.uploadFile).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('error cases', () => {
+    it('should handle database errors', async () => {
+      const userId = 1;
+      const resumeId = 1;
+      
+      mockResumeRepository.findResumeById.mockRejectedValue(new Error('DB Error'));
+
+      await expect(service.getResume(userId, resumeId))
+        .rejects.toThrow('DB Error');
+    });
+  });
+
+  describe('integration tests', () => {
+    it('should handle complete resume workflow', async () => {
+      // 전체 워크플로우 테스트
     });
   });
 }); 

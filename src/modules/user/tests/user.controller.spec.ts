@@ -63,19 +63,24 @@ describe('UserController', () => {
     it('should login successfully', async () => {
       const loginDto = {
         email: 'test@example.com',
-        password: 'password123',
-      };
-      const expectedResult = {
-        accessToken: 'accessToken',
-        refreshToken: 'refreshToken',
+        password: 'password123'
       };
 
-      mockUserService.login.mockResolvedValue(expectedResult);
+      const mockResult = {
+        tokens: {
+          accessToken: 'mock_access_token',
+          refreshToken: 'mock_refresh_token'
+        }
+      };
+
+      mockUserService.login.mockResolvedValue(mockResult);
 
       const result = await controller.login(loginDto, mockResponse);
 
-      expect(result).toBe(expectedResult);
-      expect(service.login).toHaveBeenCalledWith(loginDto);
+      expect(result).toEqual({
+        accessToken: mockResult.tokens.accessToken,
+        tokenType: 'Bearer'
+      });
     });
   });
 }); 

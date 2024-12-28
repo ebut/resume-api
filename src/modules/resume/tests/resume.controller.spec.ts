@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ResumeController } from '../resume.controller';
 import { ResumeService } from '../resume.service';
+import { JwtService } from '@nestjs/jwt';
+import { UserService } from '../../user/user.service';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 
 describe('ResumeController', () => {
   let controller: ResumeController;
@@ -42,10 +45,26 @@ describe('ResumeController', () => {
       providers: [
         {
           provide: ResumeService,
-          useValue: mockResumeService,
+          useValue: mockResumeService
         },
-      ],
-    }).compile();
+        {
+          provide: JwtService,
+          useValue: {
+            signAsync: jest.fn(),
+            verifyAsync: jest.fn()
+          }
+        },
+        {
+          provide: UserService,
+          useValue: {
+            validateAndRefreshTokens: jest.fn()
+          }
+        }
+      ]
+    })
+    .overrideGuard(JwtAuthGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
 
     controller = module.get<ResumeController>(ResumeController);
     service = module.get<ResumeService>(ResumeService);
@@ -72,7 +91,7 @@ describe('ResumeController', () => {
       const result = await controller.createResume(mockUser, createResumeDto);
 
       expect(result).toBe(expectedResult);
-      expect(service.createResume).toHaveBeenCalledWith(mockUser.id, createResumeDto);
+      expect(mockResumeService.createResume).toHaveBeenCalledWith(mockUser.id, createResumeDto);
     });
   });
 
@@ -88,31 +107,7 @@ describe('ResumeController', () => {
       const result = await controller.getResumes(mockUser);
 
       expect(result).toBe(expectedResumes);
-      expect(service.getUserResumes).toHaveBeenCalledWith(mockUser.id);
-    });
-  });
-
-  describe('uploadPortfolio', () => {
-    it('should upload portfolio file', async () => {
-      const resumeId = 1;
-      const mockFile = {
-        originalname: 'test.pdf',
-        buffer: Buffer.from('test'),
-        mimetype: 'application/pdf',
-      } as Express.Multer.File;
-      const expectedResult = {
-        id: 1,
-        resumeId,
-        fileName: 'test.pdf',
-        fileUrl: 'http://example.com/test.pdf',
-      };
-
-      mockResumeService.uploadPortfolio.mockResolvedValue(expectedResult);
-
-      const result = await controller.uploadPortfolio(mockUser, resumeId, mockFile);
-
-      expect(result).toBe(expectedResult);
-      expect(service.uploadPortfolio).toHaveBeenCalledWith(mockUser.id, resumeId, mockFile);
+      expect(mockResumeService.getUserResumes).toHaveBeenCalledWith(mockUser.id);
     });
   });
 }); 

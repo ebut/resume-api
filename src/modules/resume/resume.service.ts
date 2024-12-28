@@ -81,10 +81,10 @@ export class ResumeService {
 
       return { message: '이력서가 삭제되었습니다.' };
     } catch (error) {
-      console.error('Resume deletion failed:', {
-        error: error.message,
-        context: { userId, resumeId }
-      });
+      // console.error('Resume deletion failed:', {
+      //   error: error.message,
+      //   context: { userId, resumeId }
+      // });
       throw error;
     }
   }
@@ -236,15 +236,15 @@ export class ResumeService {
       // 3. Minio에서 파일 삭제
       await this.minioService.deleteFile(portfolio.fileName);
 
-      // 4. DB에서 ���트폴리오 정보 삭제
+      // 4. DB에서 포트폴리오 정보 삭제
       await this.resumeRepository.deletePortfolio(portfolioId);
       
       return { message: '포트폴리오가 삭제되었습니다.' };
     } catch (error) {
-      console.error('Portfolio deletion failed:', {
-        error: error.message,
-        context: { userId, resumeId, portfolioId }
-      });
+      // console.error('Portfolio deletion failed:', {
+      //   error: error.message,
+      //   context: { userId, resumeId, portfolioId }
+      // });
       throw error;
     }
   }
@@ -306,10 +306,10 @@ export class ResumeService {
       
       return fileStream;
     } catch (error) {
-      console.error('Portfolio download failed:', {
-        error: error.message,
-        context: { userId, resumeId, portfolioId }
-      });
+      // console.error('Portfolio download failed:', {
+      //   error: error.message,
+      //   context: { userId, resumeId, portfolioId }
+      // });
       throw error;
     }
   }
@@ -349,7 +349,8 @@ export class ResumeService {
       // 5. 최종 결과 조회 및 반환
       return await this.getResume(userId, resume.id);
     } catch (error) {
-      throw new Error('이력서 생성 중 오류가 발생했습니다: ' + error.message);
+      // throw new Error('이력서 생성 중 오류가 발생했습니다: ' + error.message);
+      throw error;
     }
   }
 
@@ -396,6 +397,31 @@ export class ResumeService {
       return await this.getResume(userId, resumeId);
     } catch (error) {
       throw new Error('이력서 수정 중 오류가 발생했습니다: ' + error.message);
+    }
+  }
+
+  async createCompleteResumeWithFiles(
+    userId: number,
+    completeResumeDto: CompleteResumeDto,
+    files: Express.Multer.File[]
+  ) {
+    try {
+      // 1. 이력서 생성
+      const resume = await this.createCompleteResume(userId, completeResumeDto);
+      
+      // 2. 파일 업로드
+      if (files?.length) {
+        await Promise.all(
+          files.map(file => 
+            this.uploadPortfolio(userId, resume.id, file)
+          )
+        );
+      }
+
+      return await this.getResume(userId, resume.id);
+    } catch (error) {
+      // throw new Error('이력서 생성 중 오류가 발생했습니다: ' + error.message);
+      throw error;
     }
   }
 } 

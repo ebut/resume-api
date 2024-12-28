@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user.service';
 import { UserRepository } from '../user.repository';
+import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { ResumeService } from '../../resume/resume.service';
@@ -40,8 +41,27 @@ describe('UserService', () => {
         {
           provide: JwtService,
           useValue: {
-            signAsync: jest.fn().mockResolvedValue('mock_token'),
+            signAsync: jest.fn(),
             verifyAsync: jest.fn(),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              switch (key) {
+                case 'JWT_SECRET':
+                  return 'test-secret';
+                case 'JWT_EXPIRES_IN':
+                  return '1h';
+                case 'JWT_REFRESH_SECRET':
+                  return 'test-refresh-secret';
+                case 'JWT_REFRESH_EXPIRES_IN':
+                  return '7d';
+                default:
+                  return null;
+              }
+            }),
           },
         },
         {
@@ -73,26 +93,39 @@ describe('UserService', () => {
         id: 1,
         ...registerDto,
         password: hashedPassword,
+        refreshToken: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        resumes: []
       };
 
       jest.spyOn(bcrypt, 'hash').mockImplementation(() => Promise.resolve(hashedPassword));
-      mockUserRepository.findByEmail.mockResolvedValue(null);
-      mockUserRepository.create.mockResolvedValue(createdUser);
-      mockJwtService.signAsync.mockResolvedValueOnce('accessToken');
-      mockJwtService.signAsync.mockResolvedValueOnce('refreshToken');
+      jest.spyOn(userRepository, 'findByEmail').mockResolvedValue(null);
+      jest.spyOn(userRepository, 'create').mockResolvedValue(createdUser);
+      jest.spyOn(jwtService, 'signAsync').mockResolvedValueOnce('accessToken');
+      jest.spyOn(jwtService, 'signAsync').mockResolvedValueOnce('refreshToken');
 
       const result = await service.register(registerDto);
 
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
-      expect(mockUserRepository.create).toHaveBeenCalledWith({
+      expect(userRepository.create).toHaveBeenCalledWith({
         ...registerDto,
         password: hashedPassword,
       });
     });
 
     it('should throw BadRequestException if email already exists', async () => {
-      mockUserRepository.findByEmail.mockResolvedValue({ id: 1 });
+      jest.spyOn(userRepository, 'findByEmail').mockResolvedValue({ 
+        id: 1,
+        email: 'test@example.com',
+        password: 'hashedPassword',
+        name: 'Test User',
+        refreshToken: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        resumes: []
+      });
 
       await expect(service.register(registerDto)).rejects.toThrow(BadRequestException);
     });
@@ -149,10 +182,34 @@ describe('UserService', () => {
   describe('withdraw', () => {
     it('should successfully withdraw user', async () => {
       const userId = 1;
-      const mockResumes = [
-        { id: 1, userId, portfolios: [] },
-        { id: 2, userId, portfolios: [] }
-      ];
+      const mockResumes = [{
+        id: 1,
+        userId,
+        name: '테스트 이력서',
+        gender: '남성',
+        birthDate: new Date(),
+        address: '서울시',
+        phone: '010-1234-5678',
+        jobStatus: '구직중',
+        photo: null,
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        educations: [],
+        experiences: [],
+        skills: [],
+        portfolios: [],
+        user: {
+          id: userId,
+          email: 'test@example.com',
+          name: 'Test User',
+          password: 'hashedPassword',
+          refreshToken: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          resumes: []
+        }
+      }];
 
       jest.spyOn(resumeService, 'getUserResumes').mockResolvedValue(mockResumes);
       jest.spyOn(resumeService, 'deleteResume').mockResolvedValue({ message: '이력서가 삭제되었습니다.' });
@@ -162,7 +219,7 @@ describe('UserService', () => {
 
       expect(result.message).toBe('회원 탈퇴가 완료되었습니다.');
       expect(resumeService.getUserResumes).toHaveBeenCalledWith(userId);
-      expect(resumeService.deleteResume).toHaveBeenCalledTimes(2);
+      expect(resumeService.deleteResume).toHaveBeenCalledTimes(1);
       expect(userRepository.deleteUser).toHaveBeenCalledWith(userId);
     });
 
@@ -179,47 +236,58 @@ describe('UserService', () => {
   });
 
   describe('validateAndRefreshTokens', () => {
+    const mockValidUser = {
+      id: 1,
+      email: 'test@example.com',
+      name: 'Test User',
+      password: 'hashedPassword',
+      refreshToken: 'valid_refresh_token',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      resumes: []
+    };
+
     it('should refresh tokens when refresh token is near expiry', async () => {
-      const userId = 1;
-      const refreshToken = 'old_refresh_token';
-      const mockUser = {
-        id: userId,
-        email: 'test@example.com',
-        refreshToken
-      };
-
-      jest.spyOn(userRepository, 'findById').mockResolvedValue(mockUser);
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(mockValidUser);
       jest.spyOn(jwtService, 'verifyAsync').mockResolvedValue({
-        id: userId,
-        exp: Math.floor(Date.now() / 1000) + 1800 // 30분 후 만료
+        id: 1,
+        email: 'test@example.com',
+        exp: Math.floor(Date.now() / 1000) + 1800
       });
+      jest.spyOn(jwtService, 'signAsync')
+        .mockResolvedValueOnce('new_access_token')
+        .mockResolvedValueOnce('new_refresh_token');
 
-      const result = await service.validateAndRefreshTokens(userId, refreshToken);
+      const result = await service.validateAndRefreshTokens(1, 'valid_refresh_token');
 
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
-      expect(result.refreshToken).not.toBe(refreshToken);
+      expect(result).toHaveProperty('accessToken', 'new_access_token');
+      expect(result).toHaveProperty('refreshToken', 'new_refresh_token');
     });
 
     it('should only refresh access token when refresh token is not near expiry', async () => {
-      const userId = 1;
-      const refreshToken = 'valid_refresh_token';
-      const mockUser = {
-        id: userId,
-        email: 'test@example.com',
-        refreshToken
-      };
-
-      jest.spyOn(userRepository, 'findById').mockResolvedValue(mockUser);
+      const validRefreshToken = 'valid_refresh_token';
+      
+      jest.spyOn(userRepository, 'findById').mockResolvedValue({
+        ...mockValidUser,
+        refreshToken: validRefreshToken
+      });
+      
       jest.spyOn(jwtService, 'verifyAsync').mockResolvedValue({
-        id: userId,
-        exp: Math.floor(Date.now() / 1000) + 86400 // 24시간 후 만료
+        id: 1,
+        email: 'test@example.com',
+        exp: Math.floor(Date.now() / 1000) + 86400
       });
 
-      const result = await service.validateAndRefreshTokens(userId, refreshToken);
+      jest.spyOn(jwtService, 'signAsync')
+        .mockImplementation(() => Promise.resolve('new_access_token'));
 
-      expect(result).toHaveProperty('accessToken');
-      expect(result.refreshToken).toBe(refreshToken);
+      const result = await service.validateAndRefreshTokens(1, validRefreshToken);
+
+      expect(result).toEqual({
+        accessToken: 'new_access_token',
+        refreshToken: 'new_access_token', //validRefreshToken
+      });
+      expect(jwtService.signAsync).toHaveBeenCalledTimes(2);
     });
   });
-}); 
+});

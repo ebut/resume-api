@@ -101,49 +101,6 @@ export class UserService {
     };
   }
 
-  // async refreshToken(refreshToken: string) {
-  //   try {
-  //     // 리프레시 토큰 검증
-  //     const payload = await this.jwtService.verifyAsync(refreshToken, {
-  //       secret: process.env.JWT_REFRESH_SECRET,
-  //     });
-
-  //     // 사용자 조회 및 토큰 검증
-  //     const user = await this.userRepository.findById(payload.id);
-  //     if (!user || user.refreshToken !== refreshToken) {
-  //       throw new UnauthorizedException('유효하지 않은 refresh 토큰입니다.');
-  //     }
-
-  //     // 리프레시 토큰의 만료 시간 확인
-  //     const tokenExp = new Date(payload.exp * 1000);
-  //     const now = new Date();
-  //     const timeUntilExp = tokenExp.getTime() - now.getTime();
-  //     // 리프레시 토큰의 수명 절반을 계산
-  //     // process.env.JWT_REFRESH_EXPIRES_IN 값이 있으면 그 값을 사용하고, 없으면 7일(7*24*60*60초)을 기본값으로 사용
-  //     // 밀리초 단위로 변환(* 1000)한 후 2로 나누어 토큰 수명의 절반 시점을 계산
-  //     const halfLife = (parseInt(process.env.JWT_REFRESH_EXPIRES_IN) || 7 * 24 * 60 * 60) * 1000 / 2;
-
-  //     // 리프레시 토큰의 수명이 절반 이상 지났으면 새운 리프레시 토큰 발급
-  //     if (timeUntilExp < halfLife) {
-  //       return this.generateTokens(user);
-  //     }
-
-  //     // 그렇지 않으면 액세스 토큰만 새로 발급
-  //     const accessToken = await this.jwtService.signAsync(
-  //       { id: user.id, email: user.email },
-  //       { expiresIn: process.env.JWT_EXPIRES_IN }
-  //     );
-
-  //     return {
-  //       accessToken,
-  //       refreshToken, // 기존 리프레시 토큰 유지
-  //     };
-  //   } catch (error) {
-      
-  //     throw new UnauthorizedException('유효하지 않은 토큰입니다.');
-  //   }
-  // }
-
   async logout(userId: number) {
     // DB에서 refreshToken 제거
     await this.userRepository.updateRefreshToken(userId, null);
