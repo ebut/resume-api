@@ -9,6 +9,7 @@ import { EducationDto } from './dto/education.dto';
 import { ExperienceDto } from './dto/experience.dto';
 import { SkillDto } from './dto/skill.dto';
 import { MinioService } from '../minio/minio.service';
+import { CompleteResumeDto } from './dto/complete-resume.dto';
 
 @Injectable()
 export class ResumeService {
@@ -47,9 +48,45 @@ export class ResumeService {
   }
 
   async deleteResume(userId: number, resumeId: number) {
-    const resume = await this.getResume(userId, resumeId);
-    await this.resumeRepository.deleteResume(resumeId);
-    return { message: '이력서가 삭제되었습니다.' };
+    try {
+      // 1. 권한 확인 및 이력서 조회
+      const resume = await this.getResume(userId, resumeId);
+      
+      // 2. 포트폴리오 파일들 삭제
+      if (resume.portfolios?.length) {
+        await Promise.all(
+          resume.portfolios.map(async (portfolio) => {
+            try {
+              await this.minioService.deleteFile(portfolio.fileName);
+              await this.resumeRepository.deletePortfolio(portfolio.id);
+            } catch (error) {
+              console.error('Failed to delete portfolio:', {
+                error: error.message,
+                portfolioId: portfolio.id
+              });
+            }
+          })
+        );
+      }
+
+      // 3. 관련 데이터 순차적 삭제
+      await Promise.all([
+        ...resume.educations.map(edu => this.resumeRepository.deleteEducation(edu.id)),
+        ...resume.experiences.map(exp => this.resumeRepository.deleteExperience(exp.id)),
+        ...resume.skills.map(skill => this.resumeRepository.deleteSkill(skill.id))
+      ]);
+
+      // 4. 이력서 삭제
+      await this.resumeRepository.deleteResume(resumeId);
+
+      return { message: '이력서가 삭제되었습니다.' };
+    } catch (error) {
+      console.error('Resume deletion failed:', {
+        error: error.message,
+        context: { userId, resumeId }
+      });
+      throw error;
+    }
   }
 
   // Education 관련 메서드
@@ -199,7 +236,7 @@ export class ResumeService {
       // 3. Minio에서 파일 삭제
       await this.minioService.deleteFile(portfolio.fileName);
 
-      // 4. DB에서 포트폴리오 정보 삭제
+      // 4. DB에서 ���트폴리오 정보 삭제
       await this.resumeRepository.deletePortfolio(portfolioId);
       
       return { message: '포트폴리오가 삭제되었습니다.' };
@@ -274,6 +311,91 @@ export class ResumeService {
         context: { userId, resumeId, portfolioId }
       });
       throw error;
+    }
+  }
+
+  async createCompleteResume(userId: number, completeResumeDto: CompleteResumeDto) {
+    try {
+      // 1. 기본 이력서 정보 생성
+      const resume = await this.createResume(userId, completeResumeDto.basicInfo);
+
+      // 2. 학력 정보 추가
+      if (completeResumeDto.educations?.length) {
+        await Promise.all(
+          completeResumeDto.educations.map(edu => 
+            this.addEducation(userId, resume.id, edu)
+          )
+        );
+      }
+
+      // 3. 경력 정보 추가
+      if (completeResumeDto.experiences?.length) {
+        await Promise.all(
+          completeResumeDto.experiences.map(exp => 
+            this.addExperience(userId, resume.id, exp)
+          )
+        );
+      }
+
+      // 4. 기술 정보 추가
+      if (completeResumeDto.skills?.length) {
+        await Promise.all(
+          completeResumeDto.skills.map(skill => 
+            this.addSkill(userId, resume.id, skill)
+          )
+        );
+      }
+
+      // 5. 최종 결과 조회 및 반환
+      return await this.getResume(userId, resume.id);
+    } catch (error) {
+      throw new Error('이력서 생성 중 오류가 발생했습니다: ' + error.message);
+    }
+  }
+
+  async updateCompleteResume(userId: number, resumeId: number, completeResumeDto: CompleteResumeDto) {
+    try {
+      // 1. 기본 이력서 정보 수정
+      await this.updateResume(userId, resumeId, completeResumeDto.basicInfo);
+
+      const resume = await this.getResume(userId, resumeId);
+
+      // 2. 기존 데이터 삭제
+      await Promise.all([
+        ...resume.educations.map(edu => this.deleteEducation(userId, resumeId, edu.id)),
+        ...resume.experiences.map(exp => this.deleteExperience(userId, resumeId, exp.id)),
+        ...resume.skills.map(skill => this.deleteSkill(userId, resumeId, skill.id))
+      ]);
+
+      // 3. 새로운 데이터 추가
+      if (completeResumeDto.educations?.length) {
+        await Promise.all(
+          completeResumeDto.educations.map(edu => 
+            this.addEducation(userId, resumeId, edu)
+          )
+        );
+      }
+
+      if (completeResumeDto.experiences?.length) {
+        await Promise.all(
+          completeResumeDto.experiences.map(exp => 
+            this.addExperience(userId, resumeId, exp)
+          )
+        );
+      }
+
+      if (completeResumeDto.skills?.length) {
+        await Promise.all(
+          completeResumeDto.skills.map(skill => 
+            this.addSkill(userId, resumeId, skill)
+          )
+        );
+      }
+
+      // 4. 최종 결과 조회 및 반환
+      return await this.getResume(userId, resumeId);
+    } catch (error) {
+      throw new Error('이력서 수정 중 오류가 발생했습니다: ' + error.message);
     }
   }
 } 

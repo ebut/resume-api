@@ -2,7 +2,8 @@ import { Injectable, UnauthorizedException, ExecutionContext } from '@nestjs/com
 import { AuthGuard } from '@nestjs/passport';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../../modules/user/user.service';
-import { TOKEN_CONSTANTS } from '../../config/jwt.config';
+import { TOKEN_CONSTANTS, JWT_DEFAULTS, jwtConfig } from '../../config/jwt.config';
+import { parseTimeToSeconds } from '../../common/utils/time.util';
 
 /**
  * JWT 인증을 처리하는 가드입니다.
@@ -53,7 +54,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
               httpOnly: true,
               secure: process.env.NODE_ENV === 'production',
               sameSite: 'strict',
-              maxAge: 7 * 24 * 60 * 60 * 1000
+              maxAge: parseTimeToSeconds(
+                process.env.JWT_REFRESH_EXPIRES_IN,
+                JWT_DEFAULTS.REFRESH_TOKEN_EXPIRES,
+              ) * 1000,
+              path: '/'
             });
             response.setHeader('Authorization', `Bearer ${tokens.accessToken}`);
           }

@@ -48,7 +48,42 @@ export class UserController {
   @ApiBearerAuth()
   @ApiOperation({ summary: '로그아웃' })
   @ApiResponse({ status: 200, description: '로그아웃 성공' })
-  async logout(@CurrentUser() user: User) {
-    return await this.userService.logout(user.id);
+  async logout(
+    @CurrentUser() user: User,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    await this.userService.logout(user.id);
+    
+    // 쿠키 제거
+    response.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/'
+    });
+    
+    return { message: '로그아웃되었습니다.' };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('withdraw')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '회원 탈퇴' })
+  @ApiResponse({ status: 200, description: '회원 탈퇴 성공' })
+  async withdraw(
+    @CurrentUser() user: User,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    await this.userService.withdraw(user.id);
+    
+    // 쿠키 제거
+    response.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/'
+    });
+    
+    return { message: '회원 탈퇴가 완료되었습니다.' };
   }
 } 

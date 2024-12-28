@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, UploadedFile, UseInterceptors, Res } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, UploadedFile, UseInterceptors, Res, UploadedFiles } from '@nestjs/common';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -10,6 +10,7 @@ import { ExperienceDto } from './dto/experience.dto';
 import { SkillDto } from './dto/skill.dto';
 import { User } from '../user/entities/user.entity';
 import { Response } from 'express';
+import { CompleteResumeDto } from './dto/complete-resume.dto';
 
 @ApiTags('이력서')
 @Controller('api/resumes')
@@ -276,4 +277,230 @@ link.download = filename;
 link.click();
 window.URL.revokeObjectURL(url);
   */
+
+  @Post('complete')
+  @ApiOperation({ summary: '이력서 전체 정보 한 번에 생성' })
+  @ApiResponse({ status: 201, description: '이력서 생성 성공' })
+  async createCompleteResume(
+    @CurrentUser() user: User,
+    @Body() completeResumeDto: CompleteResumeDto,
+  ) {
+    return await this.resumeService.createCompleteResume(user.id, completeResumeDto);
+  }
+
+  @Put(':id/complete')
+  @ApiOperation({ summary: '이력서 전체 정보 한 번에 수정' })
+  @ApiResponse({ status: 200, description: '이력서 수정 성공' })
+  async updateCompleteResume(
+    @CurrentUser() user: User,
+    @Param('id') resumeId: number,
+    @Body() completeResumeDto: CompleteResumeDto,
+  ) {
+    return await this.resumeService.updateCompleteResume(user.id, resumeId, completeResumeDto);
+  }
+
+  @Post('complete-with-files')
+  @UseInterceptors(FilesInterceptor('files'))
+  @ApiOperation({ summary: '이력서 전체 정보와 포트폴리오 파일들을 한 번에 생성' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['completeResumeDto'],
+      properties: {
+        completeResumeDto: {
+          type: 'string',  // JSON 문자열로 전송
+          description: '이력서 정보 (JSON 문자열)',
+          example: JSON.stringify({
+            basicInfo: {
+              name: '홍길동의 이력서',
+              gender: '남성',
+              birthDate: '1990-01-01',
+              address: '서울시 강남구',
+              phone: '010-1234-5678',
+              jobStatus: '구직중'
+            },
+            educations: [{
+              startDate: '2010-03-01',
+              endDate: '2014-02-28',
+              schoolName: '서울대학교',
+              major: '컴퓨터공학',
+              location: '서울',
+              type: '4년제'
+            }, 
+            {
+              startDate: '2014-03-01',
+              endDate: '2017-02-28',
+              schoolName: '서울대학교 대학원',
+              major: '컴퓨터공학',
+              location: '서울',
+              type: '4년제'
+            }],
+            experiences: [{
+              companyName: '네이버',
+              position: '선임개발자',
+              department: '플랫폼개발팀',
+              jobRole: '백엔드 개발',
+              location: '판교',
+              startDate: '2017-03-01',
+              endDate: '2020-02-29',
+              description: '백엔드 시스템 설계 및 개발'
+            }, 
+            {
+              companyName: '카카오',
+              position: '선임개발자',
+              department: '플랫폼개발팀',
+              jobRole: '백엔드 설계',
+              location: '판교',
+              startDate: '2020-03-01',
+              endDate: '2022-02-28',
+              description: '백엔드 시스템 설계 및 개발'
+            }],
+            skills: [{
+              skillName: 'Node.js',
+              level: '상'
+            },
+            {
+              skillName: 'Kafka',
+              level: '상'
+            },
+            {
+              skillName: 'Spark',
+              level: '상'
+            }]
+          })
+        },
+        files: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary'
+          },
+          description: '포트폴리오 파일들 (여러 개 가능)'
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 201, description: '이력서 생성 성공' })
+  async createCompleteResumeWithFiles(
+    @CurrentUser() user: User,
+    @Body('completeResumeDto') completeResumeDto: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    const parsedDto = JSON.parse(completeResumeDto) as CompleteResumeDto;
+    const resume = await this.resumeService.createCompleteResume(user.id, parsedDto);
+    
+    if (files?.length) {
+      await Promise.all(
+        files.map(file => 
+          this.resumeService.uploadPortfolio(user.id, resume.id, file)
+        )
+      );
+    }
+
+    return await this.resumeService.getResume(user.id, resume.id);
+  }
+
+  @Put(':id/complete-with-files')
+  @UseInterceptors(FilesInterceptor('files'))
+  @ApiOperation({ summary: '이력서 전체 정보와 포트폴리오 파일들을 한 번에 수정' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['completeResumeDto'],
+      properties: {
+        completeResumeDto: {
+          type: 'string',
+          description: '이력서 정보 (JSON 문자열)',
+          example: JSON.stringify({
+            basicInfo: {
+              name: '홍길동의 이력서',
+              gender: '남성',
+              birthDate: '1990-01-01',
+              address: '서울시 강남구',
+              phone: '010-1234-5678',
+              jobStatus: '구직중'
+            },
+            educations: [{
+              startDate: '2010-03-01',
+              endDate: '2014-02-28',
+              schoolName: '서울대학교',
+              major: '컴퓨터공학',
+              location: '서울',
+              type: '4년제'
+            }, 
+            {
+              startDate: '2014-03-01',
+              endDate: '2017-02-28',
+              schoolName: '서울대학교 대학원',
+              major: '컴퓨터공학',
+              location: '서울',
+              type: '4년제'
+            }],
+            experiences: [{
+              companyName: '네이버',
+              position: '선임개발자',
+              department: '플랫폼개발팀',
+              jobRole: '백엔드 개발',
+              location: '판교',
+              startDate: '2017-03-01',
+              endDate: '2020-02-29',
+              description: '백엔드 시스템 설계 및 개발'
+            }, 
+            {
+              companyName: '카카오',
+              position: '선임개발자',
+              department: '플랫폼개발팀',
+              jobRole: '백엔드 설계',
+              location: '판교',
+              startDate: '2020-03-01',
+              endDate: '2022-02-28',
+              description: '백엔드 시스템 설계 및 개발'
+            }],
+            skills: [{
+              skillName: 'Node.js',
+              level: '상'
+            },
+            {
+              skillName: 'Kafka',
+              level: '상'
+            },
+            {
+              skillName: 'Spark',
+              level: '상'
+            }]
+          })
+        },
+        files: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary'
+          },
+          description: '포트폴리오 파일들 (여러 개 가능)'
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 200, description: '이력서 수정 성공' })
+  async updateCompleteResumeWithFiles(
+    @CurrentUser() user: User,
+    @Param('id') resumeId: number,
+    @Body('completeResumeDto') completeResumeDto: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    const parsedDto = JSON.parse(completeResumeDto) as CompleteResumeDto;
+    await this.resumeService.updateCompleteResume(user.id, resumeId, parsedDto);
+    
+    if (files?.length) {
+      await Promise.all(
+        files.map(file => 
+          this.resumeService.uploadPortfolio(user.id, resumeId, file)
+        )
+      );
+    }
+
+    return await this.resumeService.getResume(user.id, resumeId);
+  }
 } 

@@ -1,16 +1,22 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, forwardRef, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserRepository } from './user.repository';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
-import { TOKEN_CONSTANTS } from '../../config/jwt.config';
+import { JWT_DEFAULTS, TOKEN_CONSTANTS, jwtConfig, jwtRefreshConfig } from '../../config/jwt.config';
+import { parseTimeToSeconds } from '../../common/utils/time.util';
+import { ConfigService } from '@nestjs/config';
+import { ResumeService } from '../resume/resume.service';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    @Inject(forwardRef(() => ResumeService))
+    private readonly resumeService: ResumeService,
   ) {}
   async register(registerDto: RegisterDto) {
     const { email, password, name } = registerDto;
@@ -35,12 +41,12 @@ export class UserService {
     
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_SECRET,
-        expiresIn: process.env.JWT_EXPIRES_IN, // 1h로 설정됨
+        secret: this.configService.get<string>('JWT_SECRET'),
+        expiresIn: this.configService.get<string>('JWT_EXPIRES_IN', '1h'),
       }),
       this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
       }),
     ]);
 
@@ -84,7 +90,10 @@ export class UserService {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
+            maxAge: parseTimeToSeconds(
+              process.env.JWT_REFRESH_EXPIRES_IN,
+              JWT_DEFAULTS.REFRESH_TOKEN_EXPIRES,
+            ) * 1000,
             path: '/'
           }
         }
@@ -114,7 +123,7 @@ export class UserService {
   //     // 밀리초 단위로 변환(* 1000)한 후 2로 나누어 토큰 수명의 절반 시점을 계산
   //     const halfLife = (parseInt(process.env.JWT_REFRESH_EXPIRES_IN) || 7 * 24 * 60 * 60) * 1000 / 2;
 
-  //     // 리프레시 토큰의 수명이 절반 이상 지났으면 새로운 리프레시 토큰 발급
+  //     // 리프레시 토큰의 수명이 절반 이상 지났으면 새운 리프레시 토큰 발급
   //     if (timeUntilExp < halfLife) {
   //       return this.generateTokens(user);
   //     }
@@ -136,7 +145,9 @@ export class UserService {
   // }
 
   async logout(userId: number) {
+    // DB에서 refreshToken 제거
     await this.userRepository.updateRefreshToken(userId, null);
+    
     return { message: '로그아웃되었습니다.' };
   }
 
@@ -174,6 +185,33 @@ export class UserService {
       };
     } catch (error) {
       return null; // 토큰 검증 실패시 null 반환
+    }
+  }
+
+  async withdraw(userId: number) {
+    try {
+      // 1. 사용자의 모든 이력서 조회
+      const resumes = await this.resumeService.getUserResumes(userId);
+      
+      // 2. 각 이력서와 관련 파일 삭제
+      if (resumes.length) {
+        await Promise.all(
+          resumes.map(resume => 
+            this.resumeService.deleteResume(userId, resume.id)
+          )
+        );
+      }
+
+      // 3. 사용자 정보 삭제
+      await this.userRepository.deleteUser(userId);
+
+      return { message: '회원 탈퇴가 완료되었습니다.' };
+    } catch (error) {
+      console.error('User withdrawal failed:', {
+        error: error.message,
+        userId
+      });
+      throw new Error('회원 탈퇴 처리 중 오류가 발생했습니다.');
     }
   }
 } 

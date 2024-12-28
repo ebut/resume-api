@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -12,20 +12,14 @@ import { Skill } from './entities/skill.entity';
 import { Portfolio } from './entities/portfolio.entity';
 import { MinioModule } from '../minio/minio.module';
 import { UserModule } from '../user/user.module';
+import { jwtConfig } from '../../config/jwt.config';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Resume, Education, Experience, Skill, Portfolio]),
     ConfigModule,
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: configService.get<string>('JWT_EXPIRES_IN') },
-      }),
-      inject: [ConfigService],
-    }),
+    JwtModule.registerAsync(jwtConfig),
     MinioModule,
-    UserModule,
+    forwardRef(() => UserModule),
   ],
   controllers: [ResumeController],
   providers: [ResumeService, ResumeRepository],

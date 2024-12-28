@@ -6,7 +6,6 @@ import { ResumeModule } from './modules/resume/resume.module';
 import { MinioModule } from './modules/minio/minio.module';
 import { typeOrmConfig } from './config/typeorm.config';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({
