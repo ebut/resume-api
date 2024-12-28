@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from './../src/app.module';
+import { MinioModule } from 'nestjs-minio-client';
+import * as https from 'https';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
