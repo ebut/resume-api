@@ -10,7 +10,7 @@ import { CookieOptions, Response } from 'express';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('사용자')
-@Controller('users')
+@Controller('api/users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
