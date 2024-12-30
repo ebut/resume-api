@@ -41,4 +41,8 @@ export class UserRepository {
   async deleteUser(userId: number): Promise<void> {
     await this.userRepository.delete(userId);
   }
+
+  async updatePassword(userId: number, hashedPassword: string): Promise<void> {
+    await this.userRepository.update(userId, { password: hashedPassword });
+  }
 } 

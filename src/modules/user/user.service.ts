@@ -8,6 +8,7 @@ import { JWT_DEFAULTS, TOKEN_CONSTANTS, jwtConfig, jwtRefreshConfig } from '../.
 import { parseTimeToSeconds } from '../../common/utils/time.util';
 import { ConfigService } from '@nestjs/config';
 import { ResumeService } from '../resume/resume.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class UserService {
@@ -18,6 +19,7 @@ export class UserService {
     @Inject(forwardRef(() => ResumeService))
     private readonly resumeService: ResumeService,
   ) {}
+
   async register(registerDto: RegisterDto) {
     const { email, password, name } = registerDto;
     
@@ -102,9 +104,14 @@ export class UserService {
   }
 
   async logout(userId: number) {
-    // DB에서 refreshToken 제거
+    // 사용자 존재 여부 확인
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
+    }
+
+    // 로그아웃 처리 (refreshToken 제거)
     await this.userRepository.updateRefreshToken(userId, null);
-    
     return { message: '로그아웃되었습니다.' };
   }
 
@@ -170,5 +177,30 @@ export class UserService {
       });
       throw new Error('회원 탈퇴 처리 중 오류가 발생했습니다.');
     }
+  }
+
+  async changePassword(userId: number, changePasswordDto: ChangePasswordDto) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
+    }
+
+    // 현재 비밀번호 확인
+    const isPasswordValid = await bcrypt.compare(
+      changePasswordDto.currentPassword,
+      user.password
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('현재 비밀번호가 일치하지 않습니다.');
+    }
+
+    // 새 비밀번호 해시화
+    const hashedNewPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
+
+    // 비밀번호 업데이트 및 리프레시 토큰 제거
+    await this.userRepository.updateRefreshToken(userId, null);
+    await this.userRepository.updatePassword(userId, hashedNewPassword);
+
+    return { message: '비밀번호가 변경되었습니다.' };
   }
 } 

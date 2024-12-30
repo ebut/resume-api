@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Put, Delete, Res } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Put, Delete, Res, UnauthorizedException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { RegisterDto } from './dto/register.dto';
@@ -7,9 +7,10 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from './entities/user.entity';
 import { CookieOptions, Response } from 'express';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('사용자')
-@Controller('api/auth')
+@Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
@@ -43,8 +44,8 @@ export class UserController {
     };
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('logout')
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '로그아웃' })
   @ApiResponse({ status: 200, description: '로그아웃 성공' })
@@ -65,8 +66,21 @@ export class UserController {
     return { message: '로그아웃되었습니다.' };
   }
 
+  @Post('change-password')
   @UseGuards(JwtAuthGuard)
-  @Delete('withdraw')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '비밀번호 변경' })
+  @ApiResponse({ status: 200, description: '비밀번호 변경 성공' })
+  @ApiResponse({ status: 401, description: '인증 실패' })
+  async changePassword(
+    @CurrentUser() user: User,
+    @Body() changePasswordDto: ChangePasswordDto
+  ) {
+    return await this.userService.changePassword(user.id, changePasswordDto);
+  }
+
+  @Delete()
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '회원 탈퇴' })
   @ApiResponse({ status: 200, description: '회원 탈퇴 성공' })

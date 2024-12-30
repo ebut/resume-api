@@ -36,6 +36,7 @@ describe('UserService', () => {
             updateRefreshToken: jest.fn(),
             findById: jest.fn(),
             deleteUser: jest.fn(),
+            updatePassword: jest.fn(),
           },
         },
         {
@@ -179,59 +180,23 @@ describe('UserService', () => {
     });
   });
 
-  describe('withdraw', () => {
-    it('should successfully withdraw user', async () => {
+  describe('logout', () => {
+    it('should successfully logout user', async () => {
       const userId = 1;
-      const mockResumes = [{
-        id: 1,
-        userId,
-        name: '테스트 이력서',
-        gender: '남성',
-        birthDate: new Date(),
-        address: '서울시',
-        phone: '010-1234-5678',
-        jobStatus: '구직중',
-        photo: null,
-        description: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        educations: [],
-        experiences: [],
-        skills: [],
-        portfolios: [],
-        user: {
-          id: userId,
-          email: 'test@example.com',
-          name: 'Test User',
-          password: 'hashedPassword',
-          refreshToken: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          resumes: []
-        }
-      }];
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(mockUser);
+      jest.spyOn(userRepository, 'updateRefreshToken').mockResolvedValue(undefined);
 
-      jest.spyOn(resumeService, 'getUserResumes').mockResolvedValue(mockResumes);
-      jest.spyOn(resumeService, 'deleteResume').mockResolvedValue({ message: '이력서가 삭제되었습니다.' });
-      jest.spyOn(userRepository, 'deleteUser').mockResolvedValue();
+      const result = await service.logout(userId);
 
-      const result = await service.withdraw(userId);
-
-      expect(result.message).toBe('회원 탈퇴가 완료되었습니다.');
-      expect(resumeService.getUserResumes).toHaveBeenCalledWith(userId);
-      expect(resumeService.deleteResume).toHaveBeenCalledTimes(1);
-      expect(userRepository.deleteUser).toHaveBeenCalledWith(userId);
+      expect(result.message).toBe('로그아웃되었습니다.');
+      expect(userRepository.updateRefreshToken).toHaveBeenCalledWith(userId, null);
     });
 
-    it('should handle withdrawal with no resumes', async () => {
-      const userId = 1;
-      jest.spyOn(resumeService, 'getUserResumes').mockResolvedValue([]);
-      jest.spyOn(userRepository, 'deleteUser').mockResolvedValue();
+    it('should throw UnauthorizedException when user not found', async () => {
+      const userId = 999;
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(null);
 
-      const result = await service.withdraw(userId);
-
-      expect(result.message).toBe('회원 탈퇴가 완료되었습니다.');
-      expect(resumeService.deleteResume).not.toHaveBeenCalled();
+      await expect(service.logout(userId)).rejects.toThrow(UnauthorizedException);
     });
   });
 
@@ -288,6 +253,132 @@ describe('UserService', () => {
         refreshToken: 'new_access_token', //validRefreshToken
       });
       expect(jwtService.signAsync).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('withdraw', () => {
+    it('should successfully withdraw user', async () => {
+      const userId = 1;
+      const mockResumes = [{
+        id: 1,
+        userId,
+        name: '테스트 이력서',
+        gender: '남성',
+        birthDate: new Date(),
+        address: '서울시',
+        phone: '010-1234-5678',
+        jobStatus: '구직중',
+        photo: null,
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        educations: [],
+        experiences: [],
+        skills: [],
+        portfolios: [],
+        user: {
+          id: userId,
+          email: 'test@example.com',
+          name: 'Test User',
+          password: 'hashedPassword',
+          refreshToken: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          resumes: []
+        }
+      }];
+
+      jest.spyOn(resumeService, 'getUserResumes').mockResolvedValue(mockResumes);
+      jest.spyOn(resumeService, 'deleteResume').mockResolvedValue({ message: '이력서가 삭제되었습니다.' });
+      jest.spyOn(userRepository, 'deleteUser').mockResolvedValue();
+
+      const result = await service.withdraw(userId);
+
+      expect(result.message).toBe('회원 탈퇴가 완료되었습니다.');
+      expect(resumeService.getUserResumes).toHaveBeenCalledWith(userId);
+      expect(resumeService.deleteResume).toHaveBeenCalledTimes(1);
+      expect(userRepository.deleteUser).toHaveBeenCalledWith(userId);
+    });
+
+    it('should handle withdrawal with no resumes', async () => {
+      const userId = 1;
+      jest.spyOn(resumeService, 'getUserResumes').mockResolvedValue([]);
+      jest.spyOn(userRepository, 'deleteUser').mockResolvedValue();
+
+      const result = await service.withdraw(userId);
+
+      expect(result.message).toBe('회원 탈퇴가 완료되었습니다.');
+      expect(resumeService.deleteResume).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('changePassword', () => {
+    const userId = 1;
+    const changePasswordDto = {
+      currentPassword: 'oldPassword123',
+      newPassword: 'newPassword123'
+    };
+
+    it('should successfully change password', async () => {
+      // Mock user 설정
+      const mockUser = {
+        id: userId,
+        email: 'test@example.com',
+        password: 'hashedOldPassword',
+        name: 'Test User',
+        refreshToken: 'some_token',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        resumes: []
+      };
+
+      // Mock 함수 설정
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(mockUser);
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true);
+      jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashedNewPassword');
+      jest.spyOn(userRepository, 'updatePassword').mockResolvedValue(undefined);
+      jest.spyOn(userRepository, 'updateRefreshToken').mockResolvedValue(undefined);
+
+      const result = await service.changePassword(userId, changePasswordDto);
+
+      // 검증
+      expect(result.message).toBe('비밀번호가 변경되었습니다.');
+      expect(userRepository.findById).toHaveBeenCalledWith(userId);
+      expect(bcrypt.compare).toHaveBeenCalledWith(changePasswordDto.currentPassword, mockUser.password);
+      expect(bcrypt.hash).toHaveBeenCalledWith(changePasswordDto.newPassword, 10);
+      expect(userRepository.updatePassword).toHaveBeenCalledWith(userId, 'hashedNewPassword');
+      expect(userRepository.updateRefreshToken).toHaveBeenCalledWith(userId, null);
+    });
+
+    it('should throw UnauthorizedException when user is not found', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(null);
+
+      await expect(service.changePassword(userId, changePasswordDto))
+        .rejects.toThrow(UnauthorizedException);
+      
+      expect(userRepository.findById).toHaveBeenCalledWith(userId);
+    });
+
+    it('should throw UnauthorizedException when current password is incorrect', async () => {
+      const mockUser = {
+        id: userId,
+        email: 'test@example.com',
+        password: 'hashedOldPassword',
+        name: 'Test User',
+        refreshToken: 'some_token',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        resumes: []
+      };
+
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(mockUser);
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(false);
+
+      await expect(service.changePassword(userId, changePasswordDto))
+        .rejects.toThrow(UnauthorizedException);
+      
+      expect(userRepository.findById).toHaveBeenCalledWith(userId);
+      expect(bcrypt.compare).toHaveBeenCalledWith(changePasswordDto.currentPassword, mockUser.password);
     });
   });
 });
