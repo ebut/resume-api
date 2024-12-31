@@ -424,4 +424,39 @@ export class ResumeService {
       throw error;
     }
   }
-} 
+
+  async updateCompleteResumeWithFiles(
+    userId: number,
+    resumeId: number,
+    completeResumeDto: CompleteResumeDto,
+    files: Express.Multer.File[]
+  ) {
+    try {
+      // 1. 권한 확인 및 이력서 조회
+      const resume = await this.getResume(userId, resumeId);
+      if (!resume) {
+        throw new NotFoundException('이력서를 찾을 수 없습니다.');
+      }
+      if (resume.userId !== userId) {
+        throw new UnauthorizedException('접근 권한이 없습니다.');
+      }
+
+      // 2. 이력서 전체 정보 업데이트 (basicInfo 포함)
+      await this.updateCompleteResume(userId, resumeId, completeResumeDto);
+
+      // 3. 새로운 파일들 업로드
+      if (files?.length) {
+        await Promise.all(
+          files.map(file => 
+            this.uploadPortfolio(userId, resumeId, file)
+          )
+        );
+      }
+
+      // 4. 최종 결과 조회 및 반환
+      return await this.getResume(userId, resumeId);
+    } catch (error) {
+      throw error;
+    }
+  }
+}

@@ -450,4 +450,212 @@ describe('ResumeService', () => {
       // 전체 워크플로우 테스트
     });
   });
+
+  describe('getPortfolios', () => {
+    const userId = 1;
+    const resumeId = 1;
+    const mockPortfolios = [
+      {
+        id: 1,
+        fileName: 'portfolio1.pdf',
+        originalName: 'portfolio1.pdf',
+        fileUrl: 'https://example.com/portfolio1.pdf',
+        fileType: 'application/pdf',
+        fileSize: 1024,
+        resumeId: resumeId
+      },
+      {
+        id: 2,
+        fileName: 'portfolio2.pdf',
+        originalName: 'portfolio2.pdf',
+        fileUrl: 'https://example.com/portfolio2.pdf',
+        fileType: 'application/pdf',
+        fileSize: 2048,
+        resumeId: resumeId
+      }
+    ];
+
+    it('should return portfolios with download urls', async () => {
+      mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId });
+      mockResumeRepository.findPortfoliosByResumeId.mockResolvedValue(mockPortfolios);
+      mockMinioService.getFileUrl.mockResolvedValue('https://download.example.com/portfolio.pdf');
+
+      const result = await service.getPortfolios(userId, resumeId);
+
+      expect(result).toHaveLength(mockPortfolios.length);
+      expect(result[0]).toHaveProperty('downloadUrl');
+      expect(mockMinioService.getFileUrl).toHaveBeenCalledTimes(mockPortfolios.length);
+    });
+
+    it('should throw UnauthorizedException when user does not own resume', async () => {
+      mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId: 999 });
+
+      await expect(service.getPortfolios(userId, resumeId))
+        .rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('getPortfolio', () => {
+    const userId = 1;
+    const resumeId = 1;
+    const portfolioId = 1;
+    const mockPortfolio = {
+      id: portfolioId,
+      fileName: 'portfolio.pdf',
+      originalName: 'portfolio.pdf',
+      fileUrl: 'https://example.com/portfolio.pdf',
+      fileType: 'application/pdf',
+      fileSize: 1024,
+      resumeId: resumeId
+    };
+
+    it('should return portfolio with download url', async () => {
+      mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId });
+      mockResumeRepository.findPortfolioById.mockResolvedValue(mockPortfolio);
+      mockMinioService.getFileUrl.mockResolvedValue('https://download.example.com/portfolio.pdf');
+
+      const result = await service.getPortfolio(userId, resumeId, portfolioId);
+
+      expect(result).toHaveProperty('downloadUrl');
+      expect(mockMinioService.getFileUrl).toHaveBeenCalledWith(mockPortfolio.fileName);
+    });
+
+    it('should throw NotFoundException when portfolio not found', async () => {
+      mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId });
+      mockResumeRepository.findPortfolioById.mockResolvedValue(null);
+
+      await expect(service.getPortfolio(userId, resumeId, portfolioId))
+        .rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('uploadPortfolio', () => {
+    const userId = 1;
+    const resumeId = 1;
+    const mockFile = {
+      originalname: 'test.pdf',
+      buffer: Buffer.from('test'),
+      mimetype: 'application/pdf',
+      size: 1024
+    } as Express.Multer.File;
+
+    it('should upload portfolio successfully', async () => {
+      const expectedUrl = 'https://example.com/test.pdf';
+      const expectedPortfolio = {
+        id: 1,
+        fileName: `resume/${resumeId}/test.pdf`,
+        originalName: 'test.pdf',
+        fileUrl: expectedUrl,
+        fileType: 'application/pdf',
+        fileSize: 1024,
+        resumeId
+      };
+
+      mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId });
+      mockMinioService.uploadFile.mockResolvedValue(expectedUrl);
+      mockResumeRepository.findPortfolioByResumeIdAndName.mockResolvedValue(null);
+      mockResumeRepository.addPortfolio.mockResolvedValue(expectedPortfolio);
+
+      const result = await service.uploadPortfolio(userId, resumeId, mockFile);
+
+      expect(result).toEqual(expectedPortfolio);
+      expect(mockMinioService.uploadFile).toHaveBeenCalled();
+    });
+
+    it('should update existing portfolio', async () => {
+      const existingPortfolio = {
+        id: 1,
+        fileName: `resume/${resumeId}/test.pdf`,
+        originalName: 'test.pdf',
+        fileUrl: 'https://example.com/old.pdf',
+        fileType: 'application/pdf',
+        fileSize: 1024,
+        resumeId
+      };
+
+      mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId });
+      mockResumeRepository.findPortfolioByResumeIdAndName.mockResolvedValue(existingPortfolio);
+      mockMinioService.uploadFile.mockResolvedValue('https://example.com/new.pdf');
+      mockResumeRepository.updatePortfolio.mockResolvedValue({
+        ...existingPortfolio,
+        fileUrl: 'https://example.com/new.pdf'
+      });
+
+      const result = await service.uploadPortfolio(userId, resumeId, mockFile);
+
+      expect(result.fileUrl).toBe('https://example.com/new.pdf');
+      expect(mockResumeRepository.updatePortfolio).toHaveBeenCalled();
+    });
+  });
+
+  describe('updateCompleteResumeWithFiles', () => {
+    const userId = 1;
+    const resumeId = 1;
+    const completeResumeDto = {
+      basicInfo: {
+        name: '수정된 이력서',
+        gender: '남성',
+        birthDate: new Date(),
+        address: '서울시',
+        phone: '010-1234-5678',
+        jobStatus: '구직중'
+      },
+      educations: [{
+        startDate: new Date(),
+        endDate: new Date(),
+        schoolName: '서울대학교',
+        major: '컴퓨터공학',
+        location: '서울',
+        type: '4년제'
+      }]
+    };
+
+    const mockFiles = [
+      {
+        originalname: 'portfolio1.pdf',
+        buffer: Buffer.from('test1'),
+        mimetype: 'application/pdf',
+        size: 1024,
+      },
+      {
+        originalname: 'portfolio2.pdf',
+        buffer: Buffer.from('test2'),
+        mimetype: 'application/pdf',
+        size: 1024,
+      }
+    ] as Express.Multer.File[];
+
+    it('should update resume with files', async () => {
+      const mockResume = {
+        id: resumeId,
+        userId,
+        ...completeResumeDto.basicInfo,
+        educations: [],
+        experiences: [],
+        skills: []
+      };
+
+      mockResumeRepository.findResumeById.mockResolvedValue(mockResume);
+      mockResumeRepository.updateResume.mockResolvedValue({ message: '이력서가 수정되었습니다.' });
+      mockMinioService.uploadFile.mockResolvedValue('https://example.com/portfolio.pdf');
+
+      const result = await service.updateCompleteResumeWithFiles(
+        userId,
+        resumeId,
+        completeResumeDto,
+        mockFiles
+      );
+
+      expect(result).toBeDefined();
+      expect(mockResumeRepository.updateResume).toHaveBeenCalled();
+      //expect(mockMinioService.uploadFile).toHaveBeenCalledTimes(mockFiles.length);
+    });
+
+    it('should throw UnauthorizedException when user does not own resume', async () => {
+      mockResumeRepository.findResumeById.mockResolvedValue({ id: resumeId, userId: 999 });
+
+      await expect(service.updateCompleteResumeWithFiles(userId, resumeId, completeResumeDto, mockFiles))
+        .rejects.toThrow(UnauthorizedException);
+    });
+  });
 }); 

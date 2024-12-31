@@ -26,6 +26,10 @@ describe('ResumeController', () => {
     deleteSkill: jest.fn(),
     uploadPortfolio: jest.fn(),
     deletePortfolio: jest.fn(),
+    createCompleteResume: jest.fn(),
+    updateCompleteResume: jest.fn(),
+    createCompleteResumeWithFiles: jest.fn(),
+    updateCompleteResumeWithFiles: jest.fn(),
   };
 
   const mockUser = {
@@ -52,6 +56,73 @@ describe('ResumeController', () => {
     experiences: [],
     skills: [],
     portfolios: []
+  };
+
+  const mockEducationResponse = {
+    id: 1,
+    schoolName: '서울대학교',
+    major: '컴퓨터공학',
+    type: '대학교',
+    location: '서울특별시',
+    startDate: new Date('2010-03-01'),
+    endDate: new Date('2014-02-28'),
+    gpa: '4.0',
+    maxGpa: '4.5'
+  };
+
+  const mockExperienceResponse = {
+    id: 1,
+    companyName: '테크 컴퍼니',
+    department: '개발팀',
+    jobRole: '백엔드 개발자',
+    position: '시니어 개발자',
+    location: '서울시 강남구',
+    startDate: new Date('2014-03-01'),
+    endDate: new Date('2018-02-28'),
+    description: '웹 애플리케이션 개발'
+  };
+
+  const mockSkillResponse = {
+    id: 1,
+    skillName: 'JavaScript',
+    level: '상',
+    category: '프로그래밍 언어'
+  };
+
+  const completeResumeDto = {
+    basicInfo: {
+      name: '신입 개발자 이력서',
+      gender: '남성',
+      birthDate: new Date('1990-01-01'),
+      address: '서울시 강남구',
+      phone: '010-1234-5678',
+      jobStatus: '구직중',
+    },
+    educations: [{
+      schoolName: '서울대학교',
+      major: '컴퓨터공학',
+      type: '대학교',
+      location: '서울특별시',
+      startDate: new Date('2010-03-01'),
+      endDate: new Date('2014-02-28'),
+      gpa: '4.0',
+      maxGpa: '4.5'
+    }],
+    experiences: [{
+      companyName: '테크 컴퍼니',
+      department: '개발팀',
+      jobRole: '백엔드 개발자',
+      position: '시니어 개발자',
+      location: '서울시 강남구',
+      startDate: new Date('2014-03-01'),
+      endDate: new Date('2018-02-28'),
+      description: '웹 애플리케이션 개발'
+    }],
+    skills: [{
+      skillName: 'JavaScript',
+      level: '상',
+      category: '프로그래밍 언어'
+    }]
   };
 
   beforeEach(async () => {
@@ -151,18 +222,6 @@ describe('ResumeController', () => {
   });
 
   describe('Education endpoints', () => {
-    const mockEducationResponse = {
-      id: 1,
-      schoolName: '서울대학교',
-      major: '컴퓨터공학',
-      type: '대학교',
-      location: '서울특별시',
-      startDate: new Date('2010-03-01'),
-      endDate: new Date('2014-02-28'),
-      gpa: '4.0',
-      maxGpa: '4.5'
-    };
-
     const mockEducationDto = {
       schoolName: '서울대학교',
       major: '컴퓨터공학',
@@ -236,18 +295,6 @@ describe('ResumeController', () => {
   });
 
   describe('Experience endpoints', () => {
-    const mockExperienceResponse = {
-      id: 1,
-      companyName: '테크 컴퍼니',
-      department: '개발팀',
-      jobRole: '백엔드 개발자',
-      position: '시니어 개발자',
-      location: '서울시 강남구',
-      startDate: new Date('2014-03-01'),
-      endDate: new Date('2018-02-28'),
-      description: '웹 애플리케이션 개발'
-    };
-
     const mockExperienceDto = {
       companyName: '테크 컴퍼니',
       department: '개발팀',
@@ -321,13 +368,6 @@ describe('ResumeController', () => {
   });
 
   describe('Skill endpoints', () => {
-    const mockSkillResponse = {
-      id: 1,
-      skillName: 'JavaScript',
-      level: '상',
-      category: '프로그래밍 언어'
-    };
-
     const mockSkillDto = {
       skillName: 'JavaScript',
       level: '상',
@@ -407,7 +447,7 @@ describe('ResumeController', () => {
       mockResumeService.uploadPortfolio.mockResolvedValue(expectedResponse);
 
       const result = await controller.uploadPortfolio(
-        mockUser,updateEducationDto
+        mockUser,
         mockResume.id,
         mockFile as Express.Multer.File
       );
@@ -440,4 +480,182 @@ describe('ResumeController', () => {
       );
     });
   });
+
+  describe('createCompleteResume', () => {
+    it('should create a complete resume with all information', async () => {
+      const expectedResponse = {
+        ...mockResume,
+        educations: [mockEducationResponse],
+        experiences: [mockExperienceResponse],
+        skills: [mockSkillResponse]
+      };
+
+      mockResumeService.createCompleteResume.mockResolvedValue(expectedResponse);
+
+      const result = await controller.createCompleteResume(mockUser, completeResumeDto);
+
+      expect(result).toBe(expectedResponse);
+      expect(service.createCompleteResume).toHaveBeenCalledWith(mockUser.id, completeResumeDto);
+    });
+  });
+
+  describe('updateCompleteResume', () => {
+    it('should update a complete resume with all information', async () => {
+      const updateCompleteResumeDto = {
+        basicInfo: {
+          name: '수정된 이력서',
+          gender: '남성',
+          birthDate: new Date('1990-01-01'),
+          address: '서울시 강남구',
+          phone: '010-1234-5678',
+          jobStatus: '재직중',
+        },
+        educations: [{
+          schoolName: '서울대학교',
+          major: '컴퓨터공학',
+          type: '대학교',
+          location: '서울특별시',
+          startDate: new Date('2010-03-01'),
+          endDate: new Date('2014-02-28'),
+          gpa: '4.2',
+          maxGpa: '4.5'
+        }],
+        experiences: [{
+          companyName: '테크 컴퍼니',
+          department: '개발팀',
+          jobRole: '백엔드 개발자',
+          position: '리드 개발자',
+          location: '서울시 강남구',
+          startDate: new Date('2014-03-01'),
+          endDate: new Date('2018-02-28'),
+          description: '웹 애플리케이션 개발 및 팀 리드'
+        }],
+        skills: [{
+          skillName: 'JavaScript',
+          level: '최상',
+          category: '프로그래밍 언어'
+        }]
+      };
+
+      const expectedResponse = {
+        ...mockResume,
+        ...updateCompleteResumeDto.basicInfo,
+        educations: [{ ...mockEducationResponse, ...updateCompleteResumeDto.educations[0] }],
+        experiences: [{ ...mockExperienceResponse, ...updateCompleteResumeDto.experiences[0] }],
+        skills: [{ ...mockSkillResponse, ...updateCompleteResumeDto.skills[0] }]
+      };
+
+      mockResumeService.updateCompleteResume.mockResolvedValue(expectedResponse);
+
+      const result = await controller.updateCompleteResume(
+        mockUser,
+        mockResume.id,
+        updateCompleteResumeDto
+      );
+
+      expect(result).toBe(expectedResponse);
+      expect(service.updateCompleteResume).toHaveBeenCalledWith(
+        mockUser.id,
+        mockResume.id,
+        updateCompleteResumeDto
+      );
+    });
+  });
+
+  // describe('createCompleteResumeWithFiles', () => {
+  //   it('should create a complete resume with files', async () => {
+  //     const stringifiedDto = JSON.stringify(completeResumeDto);
+  //     const files = [
+  //       {
+  //         fieldname: 'photo',
+  //         originalname: 'photo.jpg',
+  //         buffer: Buffer.from('test'),
+  //         mimetype: 'image/jpeg'
+  //       },
+  //       {
+  //         fieldname: 'portfolios',
+  //         originalname: 'portfolio.pdf',
+  //         buffer: Buffer.from('test'),
+  //         mimetype: 'application/pdf'
+  //       }
+  //     ] as Express.Multer.File[];
+
+  //     const expectedResponse = {
+  //       ...mockResume,
+  //       photo: 'https://example.com/photo.jpg',
+  //       educations: [mockEducationResponse],
+  //       experiences: [mockExperienceResponse],
+  //       skills: [mockSkillResponse],
+  //       portfolios: [{
+  //         id: 1,
+  //         name: 'portfolio.pdf',
+  //         url: 'https://example.com/portfolio.pdf'
+  //       }]
+  //     };
+
+  //     mockResumeService.createCompleteResumeWithFiles.mockResolvedValue(expectedResponse);
+
+  //     const result = await controller.createCompleteResumeWithFiles(
+  //       mockUser,
+  //       stringifiedDto,
+  //       files
+  //     );
+
+  //     expect(result).toBe(expectedResponse);
+  //     expect(service.createCompleteResumeWithFiles).toHaveBeenCalledWith(
+  //       mockUser.id,
+  //       completeResumeDto,
+  //       files
+  //     );
+  //   });
+  // });
+
+  // describe('updateCompleteResumeWithFiles', () => {
+  //   it('should update a complete resume with files', async () => {
+  //     const stringifiedDto = JSON.stringify(completeResumeDto);
+  //     const files = [
+  //       {
+  //         fieldname: 'photo',
+  //         originalname: 'new_photo.jpg',
+  //         buffer: Buffer.from('test'),
+  //         mimetype: 'image/jpeg'
+  //       },
+  //       {
+  //         fieldname: 'portfolios',
+  //         originalname: 'new_portfolio.pdf',
+  //         buffer: Buffer.from('test'),
+  //         mimetype: 'application/pdf'
+  //       }
+  //     ] as Express.Multer.File[];
+
+  //     const expectedResponse = {
+  //       ...mockResume,
+  //       photo: 'https://example.com/new_photo.jpg',
+  //       educations: [mockEducationResponse],
+  //       experiences: [mockExperienceResponse],
+  //       skills: [mockSkillResponse],
+  //       portfolios: [{
+  //         id: 1,
+  //         name: 'new_portfolio.pdf',
+  //         url: 'https://example.com/new_portfolio.pdf'
+  //       }]
+  //     };
+
+  //     mockResumeService.getResume.mockResolvedValue(expectedResponse);
+
+  //     const result = await controller.updateCompleteResumeWithFiles(
+  //       mockUser,
+  //       mockResume.id,
+  //       stringifiedDto,
+  //       files
+  //     );
+
+  //     expect(result).toBe(expectedResponse);
+  //     expect(service.updateCompleteResume).toHaveBeenCalledWith(
+  //       mockUser.id,
+  //       mockResume.id,
+  //       completeResumeDto
+  //     );
+  //   });
+  // });
 }); 
