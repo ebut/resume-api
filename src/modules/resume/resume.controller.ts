@@ -323,7 +323,7 @@ window.URL.revokeObjectURL(url);
             educations: [{
               startDate: '2010-03-01',
               endDate: '2014-02-28',
-              schoolName: '서울대학교',
+              schoolName: '한국대학교',
               major: '컴퓨터공학',
               location: '서울',
               type: '4년제'
@@ -331,7 +331,7 @@ window.URL.revokeObjectURL(url);
             {
               startDate: '2014-03-01',
               endDate: '2017-02-28',
-              schoolName: '서울대학교 대학원',
+              schoolName: '한국대학교 대학원',
               major: '컴퓨터공학',
               location: '서울',
               type: '4년제'
@@ -425,7 +425,7 @@ window.URL.revokeObjectURL(url);
             educations: [{
               startDate: '2010-03-01',
               endDate: '2014-02-28',
-              schoolName: '서울대학교',
+              schoolName: '한국대학교',
               major: '컴퓨터공학',
               location: '서울',
               type: '4년제'
@@ -433,7 +433,7 @@ window.URL.revokeObjectURL(url);
             {
               startDate: '2014-03-01',
               endDate: '2017-02-28',
-              schoolName: '서울대학교 대학원',
+              schoolName: '한국대학교 대학원',
               major: '컴퓨터공학',
               location: '서울',
               type: '4년제'

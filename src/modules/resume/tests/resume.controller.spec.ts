@@ -60,7 +60,7 @@ describe('ResumeController', () => {
 
   const mockEducationResponse = {
     id: 1,
-    schoolName: '서울대학교',
+    schoolName: '한국대학교',
     major: '컴퓨터공학',
     type: '대학교',
     location: '서울특별시',
@@ -99,7 +99,7 @@ describe('ResumeController', () => {
       jobStatus: '구직중',
     },
     educations: [{
-      schoolName: '서울대학교',
+      schoolName: '한국대학교',
       major: '컴퓨터공학',
       type: '대학교',
       location: '서울특별시',
@@ -223,7 +223,7 @@ describe('ResumeController', () => {
 
   describe('Education endpoints', () => {
     const mockEducationDto = {
-      schoolName: '서울대학교',
+      schoolName: '한국대학교',
       major: '컴퓨터공학',
       type: '대학교',
       location: '서울특별시',
@@ -244,7 +244,7 @@ describe('ResumeController', () => {
 
     it('should update education', async () => {
       const updateEducationDto = {
-        schoolName: '서울대학교',
+        schoolName: '한국대학교',
         major: '컴퓨터공학',
         type: '대학교',
         location: '서울특별시',
@@ -511,7 +511,7 @@ describe('ResumeController', () => {
           jobStatus: '재직중',
         },
         educations: [{
-          schoolName: '서울대학교',
+          schoolName: '한국대학교',
           major: '컴퓨터공학',
           type: '대학교',
           location: '서울특별시',

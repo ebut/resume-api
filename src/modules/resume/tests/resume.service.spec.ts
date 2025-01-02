@@ -183,7 +183,7 @@ describe('ResumeService', () => {
         educations: [{
           startDate: new Date(),
           endDate: new Date(),
-          schoolName: '서울대학교',
+          schoolName: '한국대학교',
           major: '컴퓨터공학',
           location: '서울',
           type: '4년제'
@@ -261,7 +261,7 @@ describe('ResumeService', () => {
     const educationDto = {
       startDate: new Date(),
       endDate: new Date(),
-      schoolName: '서울대학교',
+      schoolName: '한국대학교',
       major: '컴퓨터공학',
       location: '서울',
       type: '4년제'
@@ -324,7 +324,7 @@ describe('ResumeService', () => {
       educations: [{
         startDate: new Date(),
         endDate: new Date(),
-        schoolName: '서울대학교',
+        schoolName: '한국대학교',
         major: '컴퓨터공학',
         location: '서울',
         type: '4년제'
@@ -386,7 +386,7 @@ describe('ResumeService', () => {
       educations: [{
         startDate: new Date(),
         endDate: new Date(),
-        schoolName: '서울대학교',
+        schoolName: '한국대학교',
         major: '컴퓨터공학',
         location: '서울',
         type: '4년제'
@@ -603,7 +603,7 @@ describe('ResumeService', () => {
       educations: [{
         startDate: new Date(),
         endDate: new Date(),
-        schoolName: '서울대학교',
+        schoolName: '한국대학교',
         major: '컴퓨터공학',
         location: '서울',
         type: '4년제'

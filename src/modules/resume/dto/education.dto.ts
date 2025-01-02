@@ -1,4 +1,4 @@
-import { IsString, IsDate } from 'class-validator';
+import { IsString, IsDate, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -13,7 +13,7 @@ export class EducationDto {
   @IsDate()
   endDate: Date;
 
-  @ApiProperty({ example: '서울대학교' })
+  @ApiProperty({ example: '한국대학교' })
   @IsString()
   schoolName: string;
 
@@ -28,4 +28,14 @@ export class EducationDto {
   @ApiProperty({ example: '4년제' })
   @IsString()
   type: string;
+
+  @ApiProperty({ required: false, example: '4.0' })
+  @IsOptional()
+  @IsString()
+  gpa?: string;
+
+  @ApiProperty({ required: false, example: '4.5' })
+  @IsOptional()
+  @IsString()
+  maxGpa?: string;
 } 
